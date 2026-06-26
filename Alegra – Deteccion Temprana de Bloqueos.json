@@ -1,0 +1,626 @@
+{
+  "name": "Alegra – Deteccion Temprana de Bloqueos",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1lCsjvuP8hgBkQVOoMkEqGrpUreIuPsolR7rjZ8tBnaY/edit?gid=68479037#gid=68479037",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Webhook').first().json.query.tab }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "6a8f75da-2887-4967-a3dc-e5115ec5469b",
+      "name": "Leer snapshot del proyecto",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        368,
+        16
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XeLnJMB2T3afU9wD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const WEBHOOK_DATA = $('Webhook').first().json.query;\nconst TAB = WEBHOOK_DATA.tab || 'Dia5';\nconst DIA_MAP = { 'Dia5': 5, 'Dia10': 10, 'Dia15': 15, 'Dia20': 20 };\nconst DIA_ACTUAL = DIA_MAP[TAB] || 5;\n\nconst items = $input.all();\n\nfunction parsePct(val) {\n  try { return parseFloat(String(val).replace('%', '').trim()) / 100; }\n  catch { return 0; }\n}\nfunction parseDia(s) {\n  try { return parseInt(String(s).replace(/D[ií]a /i, '').trim()); }\n  catch { return 1; }\n}\nfunction avanceEsperado(inicio, fin, actual) {\n  if (actual < inicio) return 0;\n  if (actual >= fin) return 1;\n  return Math.round(((actual - inicio) / (fin - inicio)) * 10000) / 10000;\n}\nfunction calcSemaforo(avReal, avEsp, diasSin, enCritica, estado) {\n  const e = String(estado);\n  if (e.includes('Completada')) return 'VERDE';\n  if (e.includes('No iniciada') && avEsp === 0) return 'GRIS';\n  if (e.includes('Bloqueada') || e.includes('SIN ASIGNAR')) return 'ROJO';\n  const brecha = avEsp - avReal;\n  const dias = parseInt(diasSin || 0);\n  if (enCritica) {\n    if (brecha > 0.15 || dias > 2) return 'ROJO';\n    if (brecha > 0.05 || dias > 1) return 'AMARILLO';\n    return 'VERDE';\n  } else {\n    if (brecha > 0.20 || dias > 3) return 'ROJO';\n    if (brecha > 0.10 || dias > 2) return 'AMARILLO';\n    return 'VERDE';\n  }\n}\nfunction calcScore(avReal, avEsp, diasSin, enCritica, sem) {\n  let score = Math.min((avEsp - avReal) * 200, 50) + Math.min(parseInt(diasSin || 0) * 8, 20);\n  if (enCritica) score *= 1.5;\n  if (sem === 'ROJO') score += 20;\n  else if (sem === 'AMARILLO') score += 10;\n  return Math.round(Math.min(score, 100) * 10) / 10;\n}\n\nreturn items.map(item => {\n  const r = item.json;\n  const enCritica = String(r.en_ruta_critica || 'NO').trim().toUpperCase() === 'SI';\n  const avReal = parsePct(r.ultimo_avance || '0%');\n  const diasSin = r.dias_sin_avance || 0;\n  const estado = String(r.estado_actual || '');\n  const inicio = parseDia(r.fecha_inicio || 'Dia 1');\n  const fin = parseDia(r.fecha_limite || 'Dia 30');\n  const avEsp = avanceEsperado(inicio, fin, DIA_ACTUAL);\n  const brechaDias = Math.round((avEsp - avReal) * Math.max(fin - inicio, 1) * 10) / 10;\n  const sem = calcSemaforo(avReal, avEsp, diasSin, enCritica, estado);\n  const score = calcScore(avReal, avEsp, diasSin, enCritica, sem);\n  return {\n    json: {\n      ...r,\n      avance_real_num:      avReal,\n      avance_esperado_num:  avEsp,\n      brecha_pct:           Math.round((avEsp - avReal) * 10000) / 10000,\n      brecha_dias_estimada: brechaDias,\n      semaforo:             sem,\n      en_ruta_critica_bool: enCritica,\n      riesgo_score:         score,\n      dia_calculo:          DIA_ACTUAL\n    }\n  };\n});"
+      },
+      "id": "04679be4-7384-415b-be2a-11ed71128606",
+      "name": "Calcular metricas y semaforo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1lCsjvuP8hgBkQVOoMkEqGrpUreIuPsolR7rjZ8tBnaY/edit?gid=1386805764#gid=1386805764",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Webhook').first().json.query.tab }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "semaforo": "={{ $json.semaforo }}",
+            "id": "={{ $json.id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "descripcion",
+              "displayName": "descripcion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "equipo",
+              "displayName": "equipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "responsable",
+              "displayName": "responsable",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "fecha_inicio",
+              "displayName": "fecha_inicio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "fecha_limite",
+              "displayName": "fecha_limite",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ultimo_avance",
+              "displayName": "ultimo_avance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "fecha_ultimo_reporte",
+              "displayName": "fecha_ultimo_reporte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "estado_actual",
+              "displayName": "estado_actual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "semaforo",
+              "displayName": "semaforo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "dias_sin_avance",
+              "displayName": "dias_sin_avance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "en_ruta_critica",
+              "displayName": "en_ruta_critica",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dependencias",
+              "displayName": "dependencias",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "notas_riesgo",
+              "displayName": "notas_riesgo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8698409c-5cf8-4c1d-a226-0b6f3f0c93bb",
+      "name": "Escribir semaforo en Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1696,
+        144
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XeLnJMB2T3afU9wD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').first().json.query.email }}",
+        "subject": "={{ '[' + $json.semaforo_general + '] Reporte Diario – Proyecto Alegra' }}",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "c76a7f00-cef3-4afe-abe1-d88f0f0d383e",
+      "name": "Enviar reporte diario",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2224,
+        144
+      ],
+      "webhookId": "1959d624-c7a7-43e8-b1c2-f2b18bdcb2f8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30eGOXQ3aoHaSQIy",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "b3e8c207-06b4-4941-be9d-7e3df6f5c22b",
+              "leftValue": "={{ JSON.parse($json.output).alerta_critica }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "456eb928-4ed3-4a9c-8552-c7ee8d5821f5",
+      "name": "Alerta critica",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst content = raw.output;\nconst analisis = JSON.parse(content);\n\nconst detalle = analisis.detalle_alerta || {};\nconst diasImpacto = parseInt(detalle.dias_impacto_estimado || 0);\nconst tareaOrigen = String(detalle.tarea_origen || \"T1\");\n\nconst ruta = [\n  { id: \"T1\",  fin: 10 },\n  { id: \"I\",   fin: 20 },\n  { id: \"II\",  fin: 22 },\n  { id: \"III\", fin: 27 },\n  { id: \"V\",   fin: 30 }\n];\n\nconst cadena = [];\nlet aplicar = false;\n\nfor (const t of ruta) {\n  if (t.id === tareaOrigen) aplicar = true;\n  if (aplicar) {\n    cadena.push({\n      id:             t.id,\n      fin_original:   t.fin,\n      fin_proyectado: t.fin + diasImpacto,\n      dias_retraso:   diasImpacto\n    });\n  }\n}\n\nconst entrega = cadena.length > 0 ? cadena[cadena.length - 1].fin_proyectado : 30;\n\nreturn [{\n  json: {\n    analisis_completo:  analisis,\n    cadena_impacto:     cadena,\n    dias_retraso_total: diasImpacto,\n    entrega_proyectada: entrega,\n    entrega_en_riesgo:  entrega > 30,\n    tarea_origen:       tareaOrigen,\n    accion_inmediata:   detalle.accion_inmediata || \"\"\n  }\n}];"
+      },
+      "id": "a9946cda-4365-4bc8-8386-19b798ab229b",
+      "name": "Calcular impacto en cadena",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').first().json.query.email }}",
+        "subject": "=[ALERTA CRITICA] Ruta Crítica en Riesgo – Proyecto Alegra",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "6e00a534-b556-4aa2-91dc-d2313d82ef59",
+      "name": "Enviar alerta critica",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2224,
+        -144
+      ],
+      "webhookId": "2777a4fd-ac3c-4617-b5a6-e3c378dd8343",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30eGOXQ3aoHaSQIy",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Analiza el estado del proyecto.\\n\\nDatos:\\n' + JSON.stringify($json.tareas, null, 2) + '\\n\\nRuta crítica: T1 → I → II → III → V. Entrega: Día 30.' }}",
+        "options": {
+          "systemMessage": "Eres un sistema de detección temprana de riesgos de proyectos para Alegra, plataforma SaaS de contabilidad para pymes en LATAM.\n\nRecibirás un JSON con el estado de 14 tareas de un proyecto de 30 días, incluyendo métricas calculadas (avance real vs esperado, semáforo, brecha) y comentarios de texto libre en el campo notas_riesgo.\n\nAnaliza los comentarios para detectar señales de riesgo que los números solos no capturan: lenguaje de incertidumbre, dependencias sin resolver, conflictos entre equipos, falta de responsables.\n\nResponde ÚNICAMENTE con este JSON sin texto adicional:\n\n{\n  \"semaforo_general\": \"VERDE|AMARILLO|ROJO\",\n  \"resumen_ejecutivo\": \"2-3 oraciones. Diagnóstico directo. Lenguaje ejecutivo.\",\n  \"estado_por_equipo\": {\n    \"Marketing\": \"1 oración\",\n    \"Ventas\": \"1 oración\",\n    \"Producto\": \"1 oración\"\n  },\n  \"tareas_en_riesgo\": [\n    {\n      \"id\": \"ID\",\n      \"semaforo\": \"ROJO|AMARILLO\",\n      \"diagnostico\": \"1-2 oraciones.\",\n      \"accion_recomendada\": \"Acción concreta, quién, cuándo.\"\n    }\n  ],\n  \"impacto_fecha_entrega\": \"Estimación en días o Sin impacto proyectado.\",\n  \"alerta_critica\": true,\n  \"detalle_alerta\": {\n    \"tarea_origen\": \"ID\",\n    \"descripcion\": \"Señal detectada en texto libre\",\n    \"cadena_afectada\": [\"T1\",\"I\",\"II\",\"III\",\"V\"],\n    \"dias_impacto_estimado\": 0,\n    \"accion_inmediata\": \"Acción concreta con responsable y plazo en horas\"\n  }\n}\n\nReglas: alerta_critica true SOLO si hay señal crítica en la ruta crítica T1→I→II→III→V que amenace la entrega en día 30. Si alerta_critica es false, detalle_alerta es null."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1024,
+        16
+      ],
+      "id": "694f2f9e-4c19-45de-9e01-c8c12f5452ee",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1024,
+        208
+      ],
+      "id": "726ec1a2-bbc0-4d46-9edf-644dfd861f74",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "g2W4oerjsQBeeMXh",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=={{ $now.toISO() }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1120,
+        352
+      ],
+      "id": "11c0e108-f360-4e46-9bcd-667ae701bf30",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "tareas",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        816,
+        16
+      ],
+      "id": "553245a4-983d-4d3f-9242-79c4b6a14391",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nconst cadenaHtml = (d.cadena_impacto || []).map((t, i) =>\n  `<tr style=\"background:${i % 2 === 0 ? '#ffffff' : '#F9FAFB'}\">\n    <td style=\"padding:12px 16px;font-weight:600;color:#1A1A2E;border-bottom:1px solid #EEF0F3\">${t.id}</td>\n    <td style=\"padding:12px 16px;color:#6B7280;border-bottom:1px solid #EEF0F3\">Día ${t.fin_original}</td>\n    <td style=\"padding:12px 16px;border-bottom:1px solid #EEF0F3\">\n      <span style=\"background:#FEE2E2;color:#DC2626;font-weight:700;padding:3px 10px;border-radius:20px;font-size:12px\">Día ${t.fin_proyectado} +${t.dias_retraso}d</span>\n    </td>\n  </tr>`\n).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#F0FAF8;font-family:'Helvetica Neue',Arial,sans-serif\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:40px 0\">\n<tr><td align=\"center\">\n<table width=\"580\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,193,162,0.10)\">\n  <tr>\n    <td style=\"padding:24px 32px;border-bottom:3px solid #00C1A2\">\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n        <td><span style=\"color:#00C1A2;font-size:20px;font-weight:800;letter-spacing:-0.5px\">alegra</span><span style=\"color:#9CA3AF;font-size:13px;margin-left:10px\">· Sistema de Detección Temprana</span></td>\n        <td align=\"right\"><span style=\"background:#FEE2E2;color:#DC2626;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;letter-spacing:0.8px\">ALERTA CRITICA</span></td>\n      </tr></table>\n    </td>\n  </tr>\n  <tr>\n    <td style=\"background:#DC2626;padding:20px 32px\">\n      <p style=\"margin:0;color:#fff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;opacity:0.85\">Detección Temprana de Bloqueos</p>\n      <p style=\"margin:6px 0 0;color:#fff;font-size:18px;font-weight:700\">Ruta Crítica en Riesgo — Acción inmediata requerida</p>\n    </td>\n  </tr>\n  <tr>\n    <td style=\"padding:28px 32px 0\">\n      <p style=\"margin:0 0 4px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Origen del bloqueo</p>\n      <p style=\"margin:0;font-size:28px;font-weight:800;color:#1A1A2E\">Tarea ${d.tarea_origen}</p>\n      <p style=\"margin:12px 0 0;font-size:14px;line-height:1.8;color:#4B5563\">${d.analisis_completo?.detalle_alerta?.descripcion || ''}</p>\n    </td>\n  </tr>\n  <tr><td style=\"padding:24px 32px 0\"><div style=\"height:1px;background:#EEF0F3\"></div></td></tr>\n  <tr>\n    <td style=\"padding:24px 32px 0\">\n      <p style=\"margin:0 0 14px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Impacto en cadena proyectado</p>\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;border:1px solid #EEF0F3;border-radius:10px;overflow:hidden\">\n        <tr style=\"background:#F9FAFB\">\n          <th style=\"padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">TAREA</th>\n          <th style=\"padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">FIN ORIGINAL</th>\n          <th style=\"padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">FIN PROYECTADO</th>\n        </tr>\n        ${cadenaHtml}\n      </table>\n    </td>\n  </tr>\n  <tr>\n    <td style=\"padding:24px 32px 0\">\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px\">\n        <tr><td style=\"padding:14px 20px 4px\"><p style=\"margin:0;font-size:10px;font-weight:700;color:#D97706;letter-spacing:2px;text-transform:uppercase\">Acción inmediata requerida</p></td></tr>\n        <tr><td style=\"padding:0 20px 16px\"><p style=\"margin:0;font-size:14px;line-height:1.8;color:#1A1A2E\">${d.accion_inmediata}</p></td></tr>\n      </table>\n    </td>\n  </tr>\n  <tr>\n    <td style=\"padding:24px 32px 32px\">\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n        <td><p style=\"margin:0;font-size:12px;color:#9CA3AF\">Entrega proyectada: <strong style=\"color:#DC2626\">Día ${d.entrega_proyectada}</strong> · Compromiso: Día 30</p><p style=\"margin:4px 0 0;font-size:11px;color:#D1D5DB\">Generado automáticamente · Alegra</p></td>\n        <td align=\"right\" style=\"vertical-align:bottom\"><span style=\"color:#00C1A2;font-size:14px;font-weight:800\">alegra</span></td>\n      </tr></table>\n    </td>\n  </tr>\n</table>\n</td></tr>\n</table>\n</body>\n</html>`;\n\nreturn [{ json: { email_html: html, tarea_origen: d.tarea_origen, entrega_proyectada: d.entrega_proyectada } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        -144
+      ],
+      "id": "2b8ab05f-553b-45b3-acd9-80b543b1ea8d",
+      "name": "Construir email"
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = JSON.parse($node[\"AI Agent\"].json.output);\nconst tareasRiesgo = agentOutput.tareas_en_riesgo || [];\n\nconst filasOriginales = $(\"Calcular metricas y semaforo\").all();\n\nreturn filasOriginales.map(item => {\n  const r = item.json;\n  const encontrada = tareasRiesgo.find(t => t.id === r.id);\n  return {\n    json: {\n      id: r.id,\n      semaforo: encontrada ? encontrada.semaforo : r.semaforo\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        144
+      ],
+      "id": "03189586-00ab-41e9-99b2-b8c6daf63006",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $node[\"AI Agent\"].json.output;\nconst a = JSON.parse(raw);\n\nconst colorMap = { VERDE: '#00C1A2', AMARILLO: '#F5A623', ROJO: '#DC2626' };\nconst c = colorMap[a.semaforo_general] || '#9CA3AF';\n\nconst tareasHtml = (a.tareas_en_riesgo || []).map(t =>\n  `<tr>\n    <td style=\"padding:12px 16px;font-weight:600;color:#1A1A2E;border-bottom:1px solid #EEF0F3\">${t.id}</td>\n    <td style=\"padding:12px 16px;border-bottom:1px solid #EEF0F3\">\n      <span style=\"background:${t.semaforo === 'ROJO' ? '#FEE2E2' : '#FEF3C7'};color:${t.semaforo === 'ROJO' ? '#DC2626' : '#D97706'};font-weight:700;padding:3px 10px;border-radius:20px;font-size:12px\">${t.semaforo}</span>\n    </td>\n    <td style=\"padding:12px 16px;font-size:13px;color:#4B5563;border-bottom:1px solid #EEF0F3\">${t.diagnostico}</td>\n  </tr>`\n).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#F0FAF8;font-family:'Helvetica Neue',Arial,sans-serif\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:40px 0\">\n<tr><td align=\"center\">\n<table width=\"580\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,193,162,0.10)\">\n  <tr>\n    <td style=\"padding:24px 32px;border-bottom:3px solid #00C1A2\">\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n        <td><span style=\"color:#00C1A2;font-size:20px;font-weight:800\">alegra</span><span style=\"color:#9CA3AF;font-size:13px;margin-left:10px\">· Reporte de Salud del Proyecto</span></td>\n        <td align=\"right\"><span style=\"background:${c};color:#fff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px\">${a.semaforo_general}</span></td>\n      </tr></table>\n    </td>\n  </tr>\n  <tr>\n    <td style=\"background:#F8FFFE;padding:24px 32px;border-bottom:1px solid #EEF0F3\">\n      <p style=\"margin:0 0 4px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Diagnóstico ejecutivo</p>\n      <p style=\"margin:0;font-size:15px;line-height:1.8;color:#1A1A2E\">${a.resumen_ejecutivo}</p>\n    </td>\n  </tr>\n  <tr>\n    <td style=\"padding:24px 32px 0\">\n      <p style=\"margin:0 0 14px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Estado por equipo</p>\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #EEF0F3;border-radius:10px;overflow:hidden\">\n        <tr style=\"background:#F9FAFB\"><td style=\"padding:12px 16px;font-weight:700;font-size:13px;color:#1A1A2E;border-bottom:1px solid #EEF0F3;width:100px\">Marketing</td><td style=\"padding:12px 16px;font-size:13px;color:#4B5563;border-bottom:1px solid #EEF0F3\">${a.estado_por_equipo?.Marketing || ''}</td></tr>\n        <tr><td style=\"padding:12px 16px;font-weight:700;font-size:13px;color:#1A1A2E;border-bottom:1px solid #EEF0F3\">Ventas</td><td style=\"padding:12px 16px;font-size:13px;color:#4B5563;border-bottom:1px solid #EEF0F3\">${a.estado_por_equipo?.Ventas || ''}</td></tr>\n        <tr style=\"background:#F9FAFB\"><td style=\"padding:12px 16px;font-weight:700;font-size:13px;color:#1A1A2E\">Producto</td><td style=\"padding:12px 16px;font-size:13px;color:#4B5563\">${a.estado_por_equipo?.Producto || ''}</td></tr>\n      </table>\n    </td>\n  </tr>\n  ${tareasHtml.length ? `\n  <tr>\n    <td style=\"padding:24px 32px 0\">\n      <p style=\"margin:0 0 14px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Tareas que requieren atención</p>\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #EEF0F3;border-radius:10px;overflow:hidden\">\n        <tr style=\"background:#F9FAFB\">\n          <th style=\"padding:10px 16px;text-align:left;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">TAREA</th>\n          <th style=\"padding:10px 16px;text-align:left;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">ESTADO</th>\n          <th style=\"padding:10px 16px;text-align:left;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">DIAGNÓSTICO</th>\n        </tr>\n        ${tareasHtml}\n      </table>\n    </td>\n  </tr>` : ''}\n  <tr>\n    <td style=\"padding:24px 32px 0\">\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#F0FAF8;border:1px solid #00C1A2;border-radius:10px\">\n        <tr><td style=\"padding:14px 20px 4px\"><p style=\"margin:0;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Impacto estimado en entrega</p></td></tr>\n        <tr><td style=\"padding:0 20px 16px\"><p style=\"margin:0;font-size:14px;color:#1A1A2E\">${a.impacto_fecha_entrega}</p></td></tr>\n      </table>\n    </td>\n  </tr>\n  <tr>\n    <td style=\"padding:24px 32px 32px\">\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n        <td><p style=\"margin:0;font-size:11px;color:#D1D5DB\">Generado automáticamente por el Sistema de Detección Temprana · Alegra</p></td>\n        <td align=\"right\"><span style=\"color:#00C1A2;font-size:14px;font-weight:800\">alegra</span></td>\n      </tr></table>\n    </td>\n  </tr>\n</table>\n</td></tr>\n</table>\n</body>\n</html>`;\n\nreturn [{ json: { email_html: html, semaforo_general: a.semaforo_general } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        144
+      ],
+      "id": "e204018c-b363-40a3-8856-8e52df16e10a",
+      "name": "Construir email 2"
+    },
+    {
+      "parameters": {
+        "path": "89546abf-e071-4ec9-a1d9-9c5ef59cc875",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        144,
+        16
+      ],
+      "id": "3ab7c626-ad82-4983-a051-f659c3902fbb",
+      "name": "Webhook",
+      "webhookId": "89546abf-e071-4ec9-a1d9-9c5ef59cc875"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Leer snapshot del proyecto": {
+      "main": [
+        [
+          {
+            "node": "Calcular metricas y semaforo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular metricas y semaforo": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escribir semaforo en Sheet": {
+      "main": [
+        [
+          {
+            "node": "Construir email 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alerta critica": {
+      "main": [
+        [
+          {
+            "node": "Calcular impacto en cadena",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular impacto en cadena": {
+      "main": [
+        [
+          {
+            "node": "Construir email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Alerta critica",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir email": {
+      "main": [
+        [
+          {
+            "node": "Enviar alerta critica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Escribir semaforo en Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir email 2": {
+      "main": [
+        [
+          {
+            "node": "Enviar reporte diario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Leer snapshot del proyecto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "08e6d8b9-ec0a-4da9-8c50-4575707ff6be",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "88714d0adf1b13e0516d838083fec64e04c603ce4b9ef1ce11e12f1938fd31b6"
+  },
+  "nodeGroups": [],
+  "id": "YjxdMVYghPM0kvju",
+  "tags": []
+}

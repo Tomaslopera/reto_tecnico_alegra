@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Detección Temprana · Alegra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --alegra:    #1DBBAC;
+    --alegra-dk: #0F8078;
+    --alegra-lt: rgba(29,187,172,0.08);
+    --bg:        #F4FBFA;
+    --surface:   #FFFFFF;
+    --border:    rgba(0,0,0,0.07);
+    --border2:   rgba(0,0,0,0.12);
+    --text:      #1A1D23;
+    --muted:     #6B7280;
+    --faint:     #B0B7C3;
+    --font:      'Inter', sans-serif;
+    --mono:      'JetBrains Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  .site-header { background: var(--surface); border-bottom: 1px solid var(--border2); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .logo-area { display: flex; align-items: center; gap: 14px; }
+  .logo-mark { display: flex; align-items: flex-end; gap: 3px; }
+  .logo-mark span { background: var(--alegra); border-radius: 2px; display: block; }
+  .logo-mark span:nth-child(1) { width: 6px; height: 22px; }
+  .logo-mark span:nth-child(2) { width: 6px; height: 16px; opacity: 0.7; }
+  .logo-mark span:nth-child(3) { width: 6px; height: 10px; opacity: 0.4; }
+  .logo-name { font-size: 18px; font-weight: 600; color: var(--alegra); letter-spacing: -0.03em; }
+  .logo-div { width: 1px; height: 22px; background: var(--border2); }
+  .header-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .header-status { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--alegra-dk); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--alegra); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .hero { padding: 56px 32px 48px; max-width: 860px; margin: 0 auto; }
+  .hero-eye { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--alegra-dk); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .hero-eye::before { content: ''; display: block; width: 24px; height: 1px; background: var(--alegra); }
+  .hero-title { font-size: 36px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; color: var(--text); margin-bottom: 16px; }
+  .hero-title em { font-style: normal; color: var(--alegra); }
+  .hero-sub { font-size: 15px; color: var(--muted); line-height: 1.7; max-width: 580px; margin-bottom: 32px; }
+  .hero-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+  .hstat { display: flex; flex-direction: column; gap: 2px; }
+  .hstat-val { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
+  .hstat-val.green { color: var(--alegra-dk); }
+  .hstat-val.amber { color: #92400E; }
+  .hstat-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+
+  .section-divider { height: 1px; background: var(--border); margin: 0 32px; }
+
+  .main { max-width: 860px; margin: 0 auto; padding: 48px 32px 80px; display: flex; flex-direction: column; gap: 40px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .card-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .card-title-area { display: flex; flex-direction: column; gap: 3px; }
+  .card-eye { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .card-title { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .card-badge { font-family: var(--mono); font-size: 9px; font-weight: 600; padding: 3px 9px; border-radius: 99px; white-space: nowrap; flex-shrink: 0; }
+  .badge-teal   { background: var(--alegra-lt); color: var(--alegra-dk); border: 1px solid rgba(29,187,172,0.28); }
+  .badge-purple { background: rgba(124,58,237,0.09); color: #4C1D95; border: 1px solid rgba(124,58,237,0.25); }
+  .card-body { padding: 24px; }
+
+  .flow-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 28px; }
+  .flow-step { display: flex; gap: 16px; position: relative; }
+  .flow-step:not(:last-child)::after { content: ''; position: absolute; left: 16px; top: 34px; bottom: -4px; width: 1px; background: var(--border2); }
+  .step-icon { width: 33px; height: 33px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: var(--mono); font-size: 11px; font-weight: 600; margin-top: 10px; }
+  .icon-teal   { background: var(--alegra-lt); color: var(--alegra-dk); border: 1px solid rgba(29,187,172,0.2); }
+  .icon-purple { background: rgba(99,102,241,0.08); color: #4338CA; border: 1px solid rgba(99,102,241,0.2); }
+  .icon-amber  { background: rgba(245,158,11,0.09); color: #92400E; border: 1px solid rgba(245,158,11,0.2); }
+  .icon-green  { background: rgba(16,185,129,0.09); color: #065F46; border: 1px solid rgba(16,185,129,0.22); }
+  .step-content { padding: 10px 0 20px; }
+  .step-label { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .step-desc  { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .form-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .form-input { font-family: var(--font); font-size: 14px; padding: 10px 14px; border: 1px solid var(--border2); border-radius: 7px; background: var(--surface); color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; width: 100%; }
+  .form-input:focus { border-color: var(--alegra); box-shadow: 0 0 0 3px rgba(29,187,172,0.12); }
+  .form-input::placeholder { color: var(--faint); }
+  .form-hint { font-size: 11px; color: var(--faint); line-height: 1.5; }
+
+  .snapshot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+  .snapshot-card { border: 1px solid var(--border2); border-radius: 8px; padding: 14px 16px; cursor: pointer; transition: all 0.12s; position: relative; background: var(--surface); user-select: none; }
+  .snapshot-card:hover { border-color: var(--alegra); }
+  .snapshot-card.selected { border-color: var(--alegra); background: var(--alegra-lt); box-shadow: 0 0 0 2px rgba(29,187,172,0.15); }
+  .snap-day { font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; margin-bottom: 2px; }
+  .snap-title { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .snap-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .snap-sem { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 99px; margin-top: 8px; }
+  .sem-amarillo { background: rgba(245,158,11,0.12); color: #92400E; border: 1px solid rgba(245,158,11,0.28); }
+  .sem-rojo     { background: rgba(239,68,68,0.10);  color: #B91C1C; border: 1px solid rgba(239,68,68,0.25); }
+  .sem-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-amarillo { background: #F59E0B; }
+  .dot-rojo     { background: #EF4444; }
+
+  .btn { font-family: var(--font); font-size: 14px; font-weight: 500; padding: 11px 24px; border-radius: 8px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.15s; width: 100%; justify-content: center; }
+  .btn-primary { background: var(--alegra); color: #fff; }
+  .btn-primary:hover { background: var(--alegra-dk); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border2); }
+  .btn-secondary:hover { border-color: var(--alegra); color: var(--alegra-dk); }
+  .btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .status-box { display: none; padding: 14px 16px; border-radius: 8px; font-size: 13px; line-height: 1.6; margin-top: 14px; align-items: flex-start; gap: 10px; }
+  .status-box.visible { display: flex; }
+  .status-box.loading { background: rgba(29,187,172,0.07); border: 1px solid rgba(29,187,172,0.2); color: var(--alegra-dk); }
+  .status-box.success { background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); color: #065F46; }
+  .status-box.error   { background: rgba(239,68,68,0.07);  border: 1px solid rgba(239,68,68,0.2);  color: #B91C1C; }
+  .status-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(29,187,172,0.3); border-top-color: var(--alegra); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; margin-top: 2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .info-strip { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--border); }
+  .info-item { padding: 16px 20px; border-right: 1px solid var(--border); }
+  .info-item:last-child { border-right: none; }
+  .info-eye { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+  .info-val { font-size: 13px; font-weight: 500; color: var(--text); }
+
+  .context-box { border-radius: 8px; padding: 16px 18px; margin-bottom: 24px; }
+  .context-teal   { background: rgba(29,187,172,0.05);  border: 1px solid rgba(29,187,172,0.18); }
+  .context-purple { background: rgba(124,58,237,0.05);  border: 1px solid rgba(124,58,237,0.18); }
+  .context-eye  { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px; }
+  .eye-teal   { color: var(--alegra-dk); }
+  .eye-purple { color: #4C1D95; }
+  .context-text { font-size: 13px; color: var(--text); line-height: 1.7; }
+  .context-text strong { color: #92400E; }
+
+  .url-input-wrap { position: relative; margin-bottom: 16px; }
+  .url-input-wrap .form-input { padding-left: 38px; font-family: var(--mono); font-size: 12px; }
+  .url-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 14px; pointer-events: none; }
+
+  .site-footer { border-top: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .footer-left  { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--faint); }
+  .footer-right { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+  .footer-right span { color: var(--alegra); font-weight: 600; }
+
+  @media (max-width: 600px) {
+    .hero { padding: 36px 20px 32px; }
+    .hero-title { font-size: 26px; }
+    .main { padding: 32px 20px 60px; }
+    .snapshot-grid { grid-template-columns: 1fr; }
+    .info-strip { grid-template-columns: 1fr; }
+    .info-item { border-right: none; border-bottom: 1px solid var(--border); }
+    .info-item:last-child { border-bottom: none; }
+    .site-header { padding: 0 20px; }
+    .hero-stats { gap: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo-area">
+    <img src="Logo.png" alt="Alegra" style="height:28px;width:auto;display:block;">
+    <div class="logo-div"></div>
+    <span class="header-label">AI Operations Analyst Demo</span>
+  </div>
+  <div class="header-status">
+    <div class="status-dot"></div>
+    Sistema activo
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-eye">Reto técnico · AI Operations Analyst</div>
+  <h1 class="hero-title">Sistema de Detección<br>Temprana de <em>Bloqueos</em></h1>
+  <p class="hero-sub">Un pipeline que analiza el estado del proyecto diariamente, detecta señales de riesgo en texto libre antes de que se conviertan en bloqueos formales, y envía reportes ejecutivos listos para reenviar.</p>
+  <div class="hero-stats">
+    <div class="hstat"><span class="hstat-val green">-3 días</span><span class="hstat-lbl">Detección anticipada</span></div>
+    <div class="hstat"><span class="hstat-val">14 tareas</span><span class="hstat-lbl">Monitoreadas</span></div>
+    <div class="hstat"><span class="hstat-val amber">T1→I→II→III→V</span><span class="hstat-lbl">Ruta crítica</span></div>
+    <div class="hstat"><span class="hstat-val">GPT-4o</span><span class="hstat-lbl">Motor de análisis</span></div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<main class="main">
+
+  <!-- FLUJO 1 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title-area">
+        <span class="card-eye">Flujo 01</span>
+        <span class="card-title">Pipeline de detección diaria</span>
+      </div>
+      <span class="card-badge badge-teal">Google Sheets → GPT-4o → Gmail</span>
+    </div>
+    <div class="card-body">
+
+      <div class="context-box context-teal">
+        <div class="context-eye eye-teal">Contexto del reto</div>
+        <p class="context-text">El bloqueo de T1 fue reportado el <strong>día 8</strong> cuando ya se habían perdido 8 de los 10 días previstos. Este sistema lo detecta en el <strong>día 5</strong> — recuperando 3 días críticos en la ruta de entrega.</p>
+      </div>
+
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-icon icon-teal">GS</div>
+          <div class="step-content">
+            <div class="step-label">Lee el snapshot del proyecto</div>
+            <div class="step-desc">14 filas con avance, fechas y comentarios de texto libre del equipo.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-icon icon-purple">JS</div>
+          <div class="step-content">
+            <div class="step-label">Calcula métricas de desviación</div>
+            <div class="step-desc">Avance real vs esperado, brecha en días, score de riesgo por tarea.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-icon icon-amber">AI</div>
+          <div class="step-content">
+            <div class="step-label">Analiza señales en texto libre</div>
+            <div class="step-desc">GPT-4o detecta lenguaje de incertidumbre, dependencias sin resolver y conflictos de alineación.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-icon icon-green">✉</div>
+          <div class="step-content">
+            <div class="step-label">Entrega reporte o alerta crítica</div>
+            <div class="step-desc">Reporte diario de salud o alerta inmediata con impacto en cadena sobre la ruta crítica.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="email-daily">Tu correo</label>
+        <input type="email" class="form-input" id="email-daily" placeholder="tu@email.com" oninput="updateDailyBtn()">
+        <span class="form-hint">El reporte y la alerta crítica llegarán a este correo en menos de 30 segundos.</span>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div class="form-label" style="margin-bottom:10px">Snapshot a analizar</div>
+        <div class="snapshot-grid">
+          <div class="snapshot-card" onclick="selectSnap(this,'Dia5')">
+            <div class="snap-day">Día 5</div>
+            <div class="snap-title">Señales tempranas</div>
+            <div class="snap-desc">T1 al 40% cuando debería ir al 50%. Lenguaje de incertidumbre detectado.</div>
+            <div class="snap-sem sem-amarillo"><span class="sem-dot dot-amarillo"></span>AMARILLO esperado</div>
+          </div>
+          <div class="snapshot-card" onclick="selectSnap(this,'Dia10')">
+            <div class="snap-day">Día 10</div>
+            <div class="snap-title">Bloqueo materializado</div>
+            <div class="snap-desc">T1 termina en 70%. Stakeholders no alineados. Alerta crítica disparada.</div>
+            <div class="snap-sem sem-rojo"><span class="sem-dot dot-rojo"></span>ROJO · alerta crítica</div>
+          </div>
+          <div class="snapshot-card" onclick="selectSnap(this,'Dia15')">
+            <div class="snap-day">Día 15</div>
+            <div class="snap-title">Gestión en curso</div>
+            <div class="snap-desc">T1 cerrada con 2 días de retraso. I en 30%, debería ir al 50%.</div>
+            <div class="snap-sem sem-amarillo"><span class="sem-dot dot-amarillo"></span>AMARILLO · tensión</div>
+          </div>
+          <div class="snapshot-card" onclick="selectSnap(this,'Dia20')">
+            <div class="snap-day">Día 20</div>
+            <div class="snap-title">Decisión crítica</div>
+            <div class="snap-desc">III y V sin responsable asignado. Riesgo de no-inicio en 3 días.</div>
+            <div class="snap-sem sem-rojo"><span class="sem-dot dot-rojo"></span>ROJO · sin responsable</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-daily" onclick="triggerDaily()" disabled>
+        Ejecutar análisis
+      </button>
+
+      <div class="status-box loading" id="status-daily-loading">
+        <div class="spinner"></div>
+        <div><strong>Pipeline ejecutándose</strong><br>Leyendo Sheet → calculando métricas → analizando con GPT-4o → enviando correo. Tarda ~25 segundos.</div>
+      </div>
+      <div class="status-box success" id="status-daily-success">
+        <div class="status-icon">✓</div>
+        <div><strong>Listo.</strong> El reporte llegara a tu correo en los próximos minutos. Si el snapshot seleccionado detectó señal crítica también recibirás la alerta inmediata con el impacto en cadena.</div>
+      </div>
+      <div class="status-box error" id="status-daily-error">
+        <div class="status-icon">!</div>
+        <div id="error-daily-msg">Algo salió mal. Revisa que el correo sea válido e intenta de nuevo.</div>
+      </div>
+
+    </div>
+    <div class="info-strip">
+      <div class="info-item"><div class="info-eye">Orquestador</div><div class="info-val">n8n Cloud</div></div>
+      <div class="info-item"><div class="info-eye">Modelo</div><div class="info-val">GPT-4o</div></div>
+      <div class="info-item"><div class="info-eye">Fuente de datos</div><div class="info-val">Google Sheets</div></div>
+    </div>
+  </div>
+
+  <!-- FLUJO 2 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title-area">
+        <span class="card-eye">Flujo 02</span>
+        <span class="card-title">Analizador de transcripciones de reunión</span>
+      </div>
+      <span class="card-badge badge-purple">Drive → GPT-4o → Gmail</span>
+    </div>
+    <div class="card-body">
+
+      <div class="context-box context-purple">
+        <div class="context-eye eye-purple">Por qué importa</div>
+        <p class="context-text">Las reuniones capturan señales de riesgo que nunca llegan al Sheet. Este flujo analiza cualquier transcripción automáticamente y detecta bloqueos <strong>antes de que se vuelvan formales</strong>.</p>
+      </div>
+
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-icon icon-teal">DR</div>
+          <div class="step-content">
+            <div class="step-label">Lee el Google Doc de la reunión</div>
+            <div class="step-desc">Pega la URL del documento y el sistema lo lee directamente desde Drive.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-icon icon-amber">AI</div>
+          <div class="step-content">
+            <div class="step-label">Analiza la reunión con GPT-4o</div>
+            <div class="step-desc">Identifica riesgos, acuerdos, responsables y evalúa impacto sobre la ruta crítica.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-icon icon-green">✉</div>
+          <div class="step-content">
+            <div class="step-label">Envía resumen ejecutivo</div>
+            <div class="step-desc">Con puntos clave, riesgos clasificados por nivel y recomendación inmediata para el PM.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="email-transcript">Tu correo</label>
+        <input type="email" class="form-input" id="email-transcript" placeholder="tu@email.com" oninput="updateTranscriptBtn()">
+        <span class="form-hint">El resumen ejecutivo llegará a este correo en menos de 20 segundos.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="doc-url">URL del Google Doc de la reunión</label>
+        <div class="url-input-wrap">
+          <span class="url-icon">↗</span>
+          <input type="url" class="form-input" id="doc-url" placeholder="https://docs.google.com/document/d/..." oninput="updateTranscriptBtn()">
+        </div>
+        <span class="form-hint">Pega el enlace del Google Doc con la transcripción. Cualquier reunión del proyecto funciona.</span>
+      </div>
+
+      <button class="btn btn-secondary" id="btn-transcript" onclick="triggerTranscript()" disabled>
+        Analizar transcripción
+      </button>
+
+      <div class="status-box loading" id="status-transcript-loading">
+        <div class="spinner"></div>
+        <div><strong>Analizando transcripción</strong><br>GPT-4o está leyendo la reunión e identificando señales de riesgo. Tarda ~20 segundos.</div>
+      </div>
+      <div class="status-box success" id="status-transcript-success">
+        <div class="status-icon">✓</div>
+        <div><strong>Análisis enviado.</strong> El resumen ejecutivo llegará a tu correo en los próximos minutos con los riesgos identificados, acuerdos y recomendación inmediata.</div>
+      </div>
+      <div class="status-box error" id="status-transcript-error">
+        <div class="status-icon">!</div>
+        <div id="error-transcript-msg">Algo salió mal. Verifica que el correo sea válido y que la URL sea un Google Doc accesible.</div>
+      </div>
+
+    </div>
+    <div class="info-strip">
+      <div class="info-item"><div class="info-eye">Entrada</div><div class="info-val">URL de Google Doc</div></div>
+      <div class="info-item"><div class="info-eye">Modelo</div><div class="info-val">GPT-4o</div></div>
+      <div class="info-item"><div class="info-eye">Output</div><div class="info-val">Resumen + riesgos</div></div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-left">Reto técnico · AI Operations Analyst · Alegra · 2026</div>
+  <div class="footer-right">Construido por <span>Tomás Lopera</span> con n8n + GPT-4o</div>
+</footer>
+
+<script>
+  const WEBHOOK_DAILY      = 'https://tomas-10.app.n8n.cloud/webhook/89546abf-e071-4ec9-a1d9-9c5ef59cc875';
+  const WEBHOOK_TRANSCRIPT = 'https://tomas-10.app.n8n.cloud/webhook/1d8b2932-c4ab-4f58-9334-c1a385619f72';
+
+  let selectedTab = null;
+
+  function selectSnap(el, tab) {
+    document.querySelectorAll('.snapshot-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedTab = tab;
+    updateDailyBtn();
+  }
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function updateDailyBtn() {
+    const email = document.getElementById('email-daily').value.trim();
+    document.getElementById('btn-daily').disabled = !(isValidEmail(email) && selectedTab);
+  }
+
+  function updateTranscriptBtn() {
+    const email  = document.getElementById('email-transcript').value.trim();
+    const docUrl = document.getElementById('doc-url').value.trim();
+    document.getElementById('btn-transcript').disabled = !(isValidEmail(email) && docUrl.includes('docs.google.com'));
+  }
+
+  async function triggerDaily() {
+    const email = document.getElementById('email-daily').value.trim();
+    if (!email || !selectedTab) return;
+
+    setStatus('daily', 'loading');
+    document.getElementById('btn-daily').disabled = true;
+
+    try {
+      const url = `${WEBHOOK_DAILY}?email=${encodeURIComponent(email)}&tab=${selectedTab}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        setStatus('daily', 'success');
+      } else {
+        setStatus('daily', 'error');
+        document.getElementById('error-daily-msg').textContent = `Error ${res.status}. El pipeline respondió pero hubo un problema. Intenta de nuevo.`;
+      }
+    } catch (err) {
+      setStatus('daily', 'error');
+      document.getElementById('error-daily-msg').textContent = 'No se pudo conectar con el pipeline. Verifica que el flujo esté activo en n8n.';
+    } finally {
+      setTimeout(() => updateDailyBtn(), 8000);
+    }
+  }
+
+  async function triggerTranscript() {
+    const email  = document.getElementById('email-transcript').value.trim();
+    const docUrl = document.getElementById('doc-url').value.trim();
+
+    if (!isValidEmail(email) || !docUrl) return;
+
+    setStatus('transcript', 'loading');
+    document.getElementById('btn-transcript').disabled = true;
+
+    try {
+      const url = `${WEBHOOK_TRANSCRIPT}?email=${encodeURIComponent(email)}&doc_url=${encodeURIComponent(docUrl)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        setStatus('transcript', 'success');
+      } else {
+        setStatus('transcript', 'error');
+        document.getElementById('error-transcript-msg').textContent = `Error ${res.status}. Verifica que el Google Doc sea accesible y el correo sea válido.`;
+      }
+    } catch (err) {
+      setStatus('transcript', 'error');
+      document.getElementById('error-transcript-msg').textContent = 'No se pudo conectar. Verifica que el flujo de transcripciones esté activo en n8n.';
+    } finally {
+      setTimeout(() => updateTranscriptBtn(), 8000);
+    }
+  }
+
+  function setStatus(flow, state) {
+    ['loading','success','error'].forEach(s => {
+      document.getElementById(`status-${flow}-${s}`).classList.remove('visible');
+    });
+    if (state) document.getElementById(`status-${flow}-${state}`).classList.add('visible');
+  }
+</script>
+</body>
+</html>

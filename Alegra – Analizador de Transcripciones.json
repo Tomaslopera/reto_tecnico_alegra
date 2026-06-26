@@ -1,0 +1,226 @@
+{
+  "name": "Alegra – Analizador de Transcripciones",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('Webhook').first().json.query.doc_url }}",
+          "mode": "url"
+        },
+        "options": {
+          "googleFileConversion": {
+            "conversion": {
+              "docsToFormat": "text/plain"
+            }
+          }
+        }
+      },
+      "id": "85c19367-be53-4e90-be3c-18332baed29b",
+      "name": "Leer transcripcion de Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        848,
+        -112
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "BFInK5GY4sS4PwkW",
+          "name": "Google Drive OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = JSON.parse($node[\"AI Agent\"].json.output);\n\nconst nivelColor = { ALTO: '#DC2626', MEDIO: '#F5A623', BAJO: '#00C1A2' };\nconst nivelBg   = { ALTO: '#FEE2E2', MEDIO: '#FEF3C7', BAJO: '#F0FAF8' };\n\nconst riesgosHtml = (a.riesgos_identificados || []).map(r =>\n  `<tr>\n    <td style=\"padding:12px 16px;font-size:13px;color:#1A1A2E;border-bottom:1px solid #EEF0F3\">${r.descripcion}</td>\n    <td style=\"padding:12px 16px;border-bottom:1px solid #EEF0F3;text-align:center\">\n      ${r.tarea_afectada ? `<span style=\"background:#EEF0F3;color:#1A1A2E;font-weight:700;padding:2px 8px;border-radius:12px;font-size:12px\">${r.tarea_afectada}</span>` : '—'}\n    </td>\n    <td style=\"padding:12px 16px;border-bottom:1px solid #EEF0F3;text-align:center\">\n      <span style=\"background:${nivelBg[r.nivel]||'#EEF0F3'};color:${nivelColor[r.nivel]||'#888'};font-weight:700;padding:3px 10px;border-radius:20px;font-size:12px\">${r.nivel}</span>\n    </td>\n  </tr>`\n).join('');\n\nconst acuerdosHtml = (a.acuerdos || []).map(ac =>\n  `<tr>\n    <td style=\"padding:12px 16px;font-size:13px;color:#1A1A2E;border-bottom:1px solid #EEF0F3\">${ac.descripcion}</td>\n    <td style=\"padding:12px 16px;font-size:13px;font-weight:600;color:#4B5563;border-bottom:1px solid #EEF0F3\">${ac.responsable}</td>\n    <td style=\"padding:12px 16px;font-size:13px;font-weight:600;color:#00C1A2;border-bottom:1px solid #EEF0F3\">${ac.fecha_compromiso}</td>\n  </tr>`\n).join('');\n\nconst alertaBanner = a.alerta_ruta_critica ? `\n  <tr><td style=\"background:#FEE2E2;padding:14px 32px;border-left:4px solid #DC2626\">\n    <p style=\"margin:0;font-size:13px;color:#DC2626;font-weight:700\">Ruta crítica en riesgo — Requiere atención inmediata</p>\n  </td></tr>` : '';\n\nconst html = `<!DOCTYPE html>\n<html><body style=\"margin:0;padding:0;background:#F0FAF8;font-family:'Helvetica Neue',Arial,sans-serif\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:40px 0\">\n<tr><td align=\"center\">\n<table width=\"580\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,193,162,0.10)\">\n  <tr><td style=\"padding:24px 32px;border-bottom:3px solid #00C1A2\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n      <td><span style=\"color:#00C1A2;font-size:20px;font-weight:800\">alegra</span><span style=\"color:#9CA3AF;font-size:13px;margin-left:10px\">· Resumen de Reunión</span></td>\n      <td align=\"right\"><span style=\"background:#F0FAF8;color:#00C1A2;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;border:1px solid #00C1A2\">${a.fecha_reunion}</span></td>\n    </tr></table>\n  </td></tr>\n  ${alertaBanner}\n  <tr><td style=\"background:#F8FFFE;padding:24px 32px;border-bottom:1px solid #EEF0F3\">\n    <p style=\"margin:0 0 4px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Resumen ejecutivo</p>\n    <p style=\"margin:0;font-size:15px;line-height:1.8;color:#1A1A2E\">${a.resumen_ejecutivo}</p>\n  </td></tr>\n  <tr><td style=\"padding:24px 32px 0\">\n    <p style=\"margin:0 0 8px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Participantes</p>\n    <p style=\"margin:0;font-size:13px;color:#4B5563\">${(a.participantes||[]).join(' · ')}</p>\n  </td></tr>\n  <tr><td style=\"padding:24px 32px 0\">\n    <p style=\"margin:0 0 10px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Puntos clave</p>\n    <ul style=\"margin:0;padding-left:18px\">${(a.puntos_clave||[]).map(p => `<li style=\"font-size:13px;color:#4B5563;line-height:1.8;margin-bottom:4px\">${p}</li>`).join('')}</ul>\n  </td></tr>\n  ${riesgosHtml ? `<tr><td style=\"padding:24px 32px 0\">\n    <p style=\"margin:0 0 14px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Riesgos identificados</p>\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #EEF0F3;border-radius:10px;overflow:hidden\">\n      <tr style=\"background:#F9FAFB\">\n        <th style=\"padding:10px 16px;text-align:left;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">RIESGO</th>\n        <th style=\"padding:10px 16px;text-align:center;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">TAREA</th>\n        <th style=\"padding:10px 16px;text-align:center;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">NIVEL</th>\n      </tr>${riesgosHtml}\n    </table>\n  </td></tr>` : ''}\n  ${acuerdosHtml ? `<tr><td style=\"padding:24px 32px 0\">\n    <p style=\"margin:0 0 14px;font-size:10px;font-weight:700;color:#00C1A2;letter-spacing:2px;text-transform:uppercase\">Acuerdos y compromisos</p>\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #EEF0F3;border-radius:10px;overflow:hidden\">\n      <tr style=\"background:#F9FAFB\">\n        <th style=\"padding:10px 16px;text-align:left;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">ACUERDO</th>\n        <th style=\"padding:10px 16px;text-align:left;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">RESPONSABLE</th>\n        <th style=\"padding:10px 16px;text-align:left;font-size:11px;color:#9CA3AF;border-bottom:1px solid #EEF0F3\">FECHA</th>\n      </tr>${acuerdosHtml}\n    </table>\n  </td></tr>` : ''}\n  <tr><td style=\"padding:24px 32px 0\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px\">\n      <tr><td style=\"padding:14px 20px 4px\"><p style=\"margin:0;font-size:10px;font-weight:700;color:#D97706;letter-spacing:2px;text-transform:uppercase\">Recomendación inmediata</p></td></tr>\n      <tr><td style=\"padding:0 20px 16px\"><p style=\"margin:0;font-size:14px;line-height:1.8;color:#1A1A2E\">${a.recomendacion_inmediata}</p></td></tr>\n    </table>\n  </td></tr>\n  <tr><td style=\"padding:24px 32px 32px\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n      <td><p style=\"margin:0;font-size:11px;color:#D1D5DB\">Generado automáticamente por el Sistema de Detección Temprana · Alegra</p></td>\n      <td align=\"right\"><span style=\"color:#00C1A2;font-size:14px;font-weight:800\">alegra</span></td>\n    </tr></table>\n  </td></tr>\n</table>\n</td></tr></table>\n</body></html>`;\n\nreturn [{ json: { email_html: html, alerta_ruta_critica: a.alerta_ruta_critica, fecha_reunion: a.fecha_reunion } }];"
+      },
+      "id": "56a8e5f9-8b93-4636-a7ac-f95d6a22c3b4",
+      "name": "Construir email resumen reunion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').first().json.query.email }}",
+        "subject": "={{ ($json.alerta_ruta_critica ? '[ALERTA] ' : '[REUNIÓN] ') + 'Resumen ' + $json.fecha_reunion + ' – Proyecto Alegra' }}",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "5f71a366-832f-484f-bd59-9e2bdb5c40d2",
+      "name": "Enviar resumen de reunion",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1696,
+        -112
+      ],
+      "webhookId": "19e0beda-a683-47ee-8d8f-7ad52a0e0ef9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30eGOXQ3aoHaSQIy",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Analiza esta transcripción de reunión del proyecto:\\n\\n' + $input.first().json.data }}",
+        "options": {
+          "systemMessage": "Eres un asistente de operaciones de proyectos para Alegra, plataforma SaaS de contabilidad para pymes en LATAM.\\n\\nRecibirás la transcripción de una reunión de seguimiento del proyecto de Mejora de Comunicación Orientada al Usuario.\\n\\nTu trabajo es:\\n1. Identificar los puntos clave discutidos\\n2. Detectar riesgos y señales de alerta mencionados explícita o implícitamente\\n3. Identificar acuerdos y compromisos con responsable y fecha\\n4. Evaluar el impacto potencial sobre la ruta crítica: T1 → I → II → III → V\\n5. Generar un resumen ejecutivo accionable\\n\\nResponde ÚNICAMENTE con este JSON sin texto adicional ni markdown:\\n\\n{\\n  \\\"fecha_reunion\\\": \\\"Día X del proyecto\\\",\\n  \\\"participantes\\\": [\\\"nombre1\\\", \\\"nombre2\\\"],\\n  \\\"puntos_clave\\\": [\\\"Punto 1\\\", \\\"Punto 2\\\"],\\n  \\\"riesgos_identificados\\\": [\\n    {\\n      \\\"descripcion\\\": \\\"Descripción del riesgo\\\",\\n      \\\"tarea_afectada\\\": \\\"ID de tarea o null\\\",\\n      \\\"impacto_ruta_critica\\\": true,\\n      \\\"nivel\\\": \\\"ALTO|MEDIO|BAJO\\\"\\n    }\\n  ],\\n  \\\"acuerdos\\\": [\\n    {\\n      \\\"descripcion\\\": \\\"Qué se acordó\\\",\\n      \\\"responsable\\\": \\\"Nombre\\\",\\n      \\\"fecha_compromiso\\\": \\\"Día X o fecha\\\"\\n    }\\n  ],\\n  \\\"resumen_ejecutivo\\\": \\\"2-3 oraciones. Diagnóstico directo de lo discutido y su impacto potencial en el proyecto.\\\",\\n  \\\"alerta_ruta_critica\\\": true,\\n  \\\"recomendacion_inmediata\\\": \\\"Acción concreta que el PM debe tomar hoy basada en lo discutido.\\\"\\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1072,
+        -112
+      ],
+      "id": "ec422faf-7650-493a-9547-6bd37d681737",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1072,
+        96
+      ],
+      "id": "1429c3ac-7103-4fcc-9cdf-64e56b19ace0",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "g2W4oerjsQBeeMXh",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $now.toISO() }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1168,
+        240
+      ],
+      "id": "332f1c68-0465-4df0-a350-5b5ac3c8b596",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "path": "1d8b2932-c4ab-4f58-9334-c1a385619f72",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        608,
+        -112
+      ],
+      "id": "289ccbe2-2f5b-4586-b2fd-e3b92c73c2a2",
+      "name": "Webhook",
+      "webhookId": "1d8b2932-c4ab-4f58-9334-c1a385619f72"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Leer transcripcion de Drive": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir email resumen reunion": {
+      "main": [
+        [
+          {
+            "node": "Enviar resumen de reunion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Construir email resumen reunion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Leer transcripcion de Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "b23ac1e8-e66e-4e95-abe5-9261aabe7a5c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "88714d0adf1b13e0516d838083fec64e04c603ce4b9ef1ce11e12f1938fd31b6"
+  },
+  "nodeGroups": [],
+  "id": "NrOfbgCLNQHnRqlf",
+  "tags": []
+}
