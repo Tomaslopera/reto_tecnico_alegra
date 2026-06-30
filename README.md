@@ -6,16 +6,13 @@ https://cute-eclair-ed3500.netlify.app/
 
 ## Flujos
 
-### Flujo 01 — Detección diaria
+### Flujo 01 — Detección temprana de bloqueos
 `Alegra – Deteccion Temprana de Bloqueos.json`
 
 Lee el estado del proyecto desde Google Sheets, calcula métricas de desviación en JavaScript, analiza los comentarios de texto libre con GPT-4o y envía un reporte de semáforo por Gmail. Si detecta señal crítica en la ruta crítica T1→I→II→III→V dispara una alerta inmediata con el impacto en cadena estimado.
 
-```
-Webhook → Google Sheets → JS (métricas) → AI Agent (GPT-4o) → Sheets (semáforo) → Gmail
-                                                                        ↓
-                                                               Gmail (alerta crítica)
-```
+![Detección de Bloqueos](Captura de pantalla 2026-06-26 a la(s)
+6.30.45p.m..png)
 
 ### Flujo 02 — Analizador de transcripciones
 `Alegra – Analizador de Transcripciones.json`
